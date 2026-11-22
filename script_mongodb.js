@@ -1,13 +1,12 @@
 // ==========================================
-//  TAREA 4 - BIG DATA 
-// Base de datos: tienda_virtual
-// Colección: pedidos
+//  TAREA 4 - BIG DATA (Caso: Tienda Virtual)
+//  Estudiante: Stephany Angel Gómez
 // ==========================================
 
 // 1. Conexión y selección de la base de datos
 use tienda_virtual;
 
-// 2. Limpieza previa de la colección (opcional) y carga masiva de los 105 documentos
+// 2. Carga masiva de documentos en la colección 'pedidos' (105 registros)
 db.pedidos.deleteMany({});
 db.pedidos.insertMany(Array.from({length: 105}, (_, i) => ({
     _id: 5000 + i, 
@@ -16,12 +15,23 @@ db.pedidos.insertMany(Array.from({length: 105}, (_, i) => ({
     total: 100000
 })));
 
-// Verificación del total de documentos insertados (Debe retornar 105)
+// Verificación del total de documentos insertados en pedidos (Debe retornar 105)
 db.pedidos.countDocuments();
 
 
 // ==========================================
-// 3. OPERACIONES CRUD (Crear, Leer, Actualizar, Borrar)
+// 3. POBLAMIENTO DE LA COLECCIÓN CLIENTES
+// ==========================================
+db.clientes.deleteMany({});
+db.clientes.insertMany([
+  { _id: 1, nombre: "Stephany Gómez", ciudad: "Cali", email: "stephany@correo.com" },
+  { _id: 2, nombre: "Carlos Ruiz", ciudad: "Bogotá", email: "carlos@correo.com" },
+  { _id: 3, nombre: "Ana Torres", ciudad: "Medellín", email: "ana@correo.com" }
+]);
+
+
+// ==========================================
+// 4. OPERACIONES CRUD (Crear, Leer, Actualizar, Borrar)
 // ==========================================
 
 // Inserción de un documento individual (insertOne)
@@ -46,10 +56,10 @@ db.pedidos.deleteOne({ _id: 9999 });
 
 
 // ==========================================
-// 4. CONSULTA DE AGREGACIÓN (Estadísticas)
+// 5. CONSULTAS AVANZADAS Y DE AGREGACIÓN
 // ==========================================
 
-// Agrupar por estado para obtener el conteo y la suma total de ventas
+// A. Consulta de Agregación básica (Conteo y suma total por estado)
 db.pedidos.aggregate([
   { 
     $group: { 
@@ -57,5 +67,50 @@ db.pedidos.aggregate([
       cantidad_pedidos: { $sum: 1 }, 
       venta_total: { $sum: "$total" } 
     } 
+  }
+]);
+
+// B. Consulta Relacional con $lookup (Join entre pedidos y clientes)
+db.pedidos.aggregate([
+  {
+    $lookup: {
+      from: "clientes",
+      localField: "cliente_id",
+      foreignField: "_id",
+      as: "datos_cliente"
+    }
+  },
+  { $limit: 2 }
+]);
+
+// C. Cálculo de estadísticas avanzadas incluyendo el promedio ($avg)
+db.pedidos.aggregate([
+  {
+    $group: {
+      _id: "$estado",
+      cantidad_pedidos: { $sum: 1 },
+      venta_total: { $sum: "$total" },
+      promedio_por_pedido: { $avg: "$total" }
+    }
+  }
+]);
+
+// D. Segmentación de clientes y ventas por ciudad (Lookup + Unwind + Group)
+db.pedidos.aggregate([
+  {
+    $lookup: {
+      from: "clientes",
+      localField: "cliente_id",
+      foreignField: "_id",
+      as: "cliente"
+    }
+  },
+  { $unwind: "$cliente" },
+  {
+    $group: {
+      _id: "$cliente.ciudad",
+      cantidad_pedidos: { $sum: 1 },
+      total_vendido: { $sum: "$total" }
+    }
   }
 ]);
